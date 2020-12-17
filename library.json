@@ -1,0 +1,22 @@
+{
+    "name": "Losant",
+    "keywords": "script, iot",
+    "description": "Extreemly small (nio really!!) scripting classes for Arduino",
+    "repository":
+    {
+      "type": "git",
+      "url": "https://github.com/rvt/scriptrunner.git"
+    },
+    "version": "0.0.1",
+    "dependencies":
+    [
+      {
+        "name": "opt-parser",
+        "frameworks": "arduino",
+        "version": "https://github.com/rvt/opt-parser.git"
+      }
+    ],
+    "frameworks": "arduino",
+    "platforms": "*"
+  }
+  
