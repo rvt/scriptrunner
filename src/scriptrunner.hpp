@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <functional>
 #include <vector>
+#include <memory>
 
 #include <optparser.hpp>
 

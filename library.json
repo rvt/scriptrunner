@@ -1,5 +1,5 @@
 {
-    "name": "Losant",
+    "name": "rvt",
     "keywords": "script, iot",
     "description": "Extreemly small (nio really!!) scripting classes for Arduino",
     "repository":
