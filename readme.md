@@ -1,4 +1,4 @@
-[![Build Status](https://api.travis-ci.org/rvt/statemachine.svg?branch=master)](https://www.travis-ci.org/rvt/scriptrunner)
+[![Build Status](https://api.travis-ci.org/rvt/scriptrunner.svg?branch=master)](https://www.travis-ci.org/rvt/scriptrunner)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # Small library to create a simply wau to run arbitary 'scripts' on arduino
