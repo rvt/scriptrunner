@@ -7,10 +7,7 @@ using Catch::Matchers::Equals;
 
 using namespace rvt::scriptrunner;
 
-template<typename T, typename... Args>
-std::unique_ptr<T> make_unique(Args&& ... args) {
-    return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
-}
+typedef PlainTextContext<512> PlainTextContext512;
 
 TEST_CASE("Should Run script till end", "[scriptrunner]") {
     std::vector<Command<Context>*> commands;
@@ -20,7 +17,7 @@ TEST_CASE("Should Run script till end", "[scriptrunner]") {
         return true;
     }));
 
-    Context context{
+    PlainTextContext<32> context {
         "cerr=foo;"
         "cerr=bar;"};
     auto scriptRunner = new ScriptRunner<Context>(commands);
@@ -46,10 +43,10 @@ TEST_CASE("Should Run script till end", "[scriptrunner]") {
 
 TEST_CASE("Should handle an extendedContext", "[scriptrunner]") {
 
-    class ExtendedContext : public Context {
+    class ExtendedContext : public PlainTextContext512 {
         uint16_t m_counter;
     public:
-        ExtendedContext(const char* script) : Context(script), m_counter(0)  {
+        ExtendedContext(const char* script) : PlainTextContext512(script), m_counter(0)  {
 
         }
         uint16_t increaseAndGet() {
@@ -83,10 +80,10 @@ TEST_CASE("Should handle an extendedContext", "[scriptrunner]") {
 
 
 TEST_CASE("Should perform jump", "[scriptrunner]") {
-    class ExtendedContext : public Context {
+    class ExtendedContext : public PlainTextContext512 {
     public:
         uint16_t counter;
-        ExtendedContext(const char* script) : Context(script), counter(0)  {
+        ExtendedContext(const char* script) : PlainTextContext512(script), counter(0)  {
 
         }
     };
@@ -115,11 +112,11 @@ TEST_CASE("Should perform jump", "[scriptrunner]") {
 }
 
 TEST_CASE("Should perform jump, even as first line", "[scriptrunner]") {
-    class ExtendedContext : public Context {
+    class ExtendedContext : public PlainTextContext512 {
     public:
         char* value;
         uint8_t counter = 0;
-        ExtendedContext(const char* script) : Context(script), value(nullptr), counter(0)  {
+        ExtendedContext(const char* script) : PlainTextContext512(script), value(nullptr), counter(0)  {
 
         }
     };
@@ -155,10 +152,10 @@ TEST_CASE("Should perform jump, even as first line", "[scriptrunner]") {
 }
 
 TEST_CASE("Should handle waits", "[scriptrunner]") {
-    class ExtendedContext : public Context {
+    class ExtendedContext : public PlainTextContext512 {
     public:
         char* value;
-        ExtendedContext(const char* script) : Context(script), value(nullptr)  {
+        ExtendedContext(const char* script) : PlainTextContext512(script), value(nullptr)  {
 
         }
     };

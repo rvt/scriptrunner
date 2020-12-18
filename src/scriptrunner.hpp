@@ -1,4 +1,5 @@
 #pragma once
+#include <string.h>
 #include <stdint.h>
 #include <functional>
 #include <vector>
@@ -23,33 +24,26 @@ std::unique_ptr<T> make_unique(Args&& ... args) {
 
 
 class Context {
+public:
     typedef std::unique_ptr<OptValue> OptValuePtr;
-    uint32_t m_currentTime;
+private:
     std::vector<OptValuePtr>::iterator m_currentLine;
     std::vector<OptValuePtr> m_script;
-    char* m_scriptText;
-
-    unsigned long m_requestedStart;
+    unsigned long m_requestedStartMillis;
 public:
-    Context(const char* script) : m_requestedStart{0} {
-        m_scriptText = strdup(script);
-
-        OptParser::get(m_scriptText, ';', [this](OptValue f) {
-            m_script.push_back(make_unique<OptValue>(f));
-        });
+    Context(std::vector<OptValuePtr> p_script) : m_script(std::move(p_script)), m_requestedStartMillis(0) {
         m_script.push_back(make_unique<OptValue>(m_script.size(), "end", ""));
         m_currentLine = m_script.begin();
     }
 
-    Context(std::vector<OptValuePtr> p_script) : m_scriptText(nullptr)  {
-        m_script = std::move(p_script);
-        m_currentLine = m_script.begin();
+    Context() : m_requestedStartMillis(0) {
     }
 
-    virtual ~Context() {
-        if (m_scriptText != nullptr) {
-            delete m_scriptText;
-        }
+    void setScript(std::vector<OptValuePtr> p_script) {
+        m_script = std::move(p_script);
+        m_script.push_back(make_unique<OptValue>(m_script.size(), "end", ""));
+        m_currentLine = m_script.begin();
+        m_requestedStartMillis = 0;
     }
 
     const OptValue& currentLine() const {
@@ -61,13 +55,13 @@ public:
      * return true if the waiting is over, returns false if we should not advance to the next line
      */
     bool wait(unsigned long currentMillis, unsigned long millisToWait) {
-        if (m_requestedStart) {
-            if (currentMillis - m_requestedStart > millisToWait) {
-                m_requestedStart = 0;
+        if (m_requestedStartMillis) {
+            if (currentMillis - m_requestedStartMillis > millisToWait) {
+                m_requestedStartMillis = 0;
                 return true;
             }
         } else {
-            m_requestedStart = currentMillis == 0 ? 1 : currentMillis;
+            m_requestedStartMillis = currentMillis == 0 ? 1 : currentMillis;
         }
 
         return false;
@@ -114,6 +108,22 @@ public:
     }
 };
 
+template<uint16_t ScriptSize>
+class PlainTextContext : public Context {
+    char m_scriptText[ScriptSize] {};
+public:
+    // Not happy with this contraption yet.
+    // I would like to copy the character array AND of the option parser point to the right data
+    PlainTextContext(const char* script) : Context() {
+        strncpy(m_scriptText, script, ScriptSize);
+        std::vector<Context::OptValuePtr> scriptOpts;
+        OptParser::get(m_scriptText, ';', [&scriptOpts](OptValue f) {
+            scriptOpts.push_back(make_unique<OptValue>(f));
+        });
+        setScript(std::move(scriptOpts));
+    }
+};
+
 /**
  * Simpel state that gets run each time the StateMachine reaches this state
  */
@@ -142,7 +152,7 @@ public:
         return strcmp(execLine.key(), m_command) == 0;
     }
 
-    virtual bool execute(const OptValue& execLine, ContextType& context) {
+    bool execute(const OptValue& execLine, ContextType& context) {
         return m_run(execLine, context);
     }
 
@@ -192,4 +202,3 @@ public:
 };
 }
 }
-
