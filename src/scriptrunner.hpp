@@ -141,8 +141,8 @@ private:
 public:
 
     Command(const char* p_command, const TRunFunction& p_run) :
-        m_command(p_command),
-        m_run(p_run) {
+        m_run(p_run),
+        m_command(p_command) {
     }
 
     ~Command() {
