@@ -92,11 +92,13 @@ public:
     bool advance() {
         const OptValue& current = currentLine();
 
-        if (strcmp(current.key(), "end") == 0) {
+        if (current.isKey("end")) {
             return false;
-        } else if (strcmp(current.key(), "jump") == 0) {
+        } else if (current.isKey("jump")) {
             jump(current);
-        } else if (strcmp(current.key(), "wait") == 0) {
+        } else if (current.isKey("label")) {
+            m_currentLine++;
+        } else if (current.isKey("wait")) {
             if (wait(millis(), (int32_t)current)) {
                 m_currentLine++;
             }
