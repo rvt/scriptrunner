@@ -118,6 +118,9 @@ public:
     bool isAdvanced() const {
         return m_advanced;
     }
+    void isAdvanced(bool advanced)  {
+        m_advanced=advanced;
+    }
 
 };
 
@@ -201,6 +204,7 @@ public:
         for (auto value : m_commands) {
             if (value->canExecute(currentLineValue)) {
                 advance = value->execute(currentLineValue, context);
+                if (!advance) context.isAdvanced(false);
                 hasRan = true;
             }
         }
