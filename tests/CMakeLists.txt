@@ -16,12 +16,12 @@ ADD_DEFINITIONS(-DUNIT_TEST)
 
 set(LIB_SOURCES
     ../src/scriptrunner.cpp
-    ../.pio/libdeps/build/opt-parser/src/optparser.cpp
+    ../.pio/libdeps/build/rvt-OptionParser/src/optparser.cpp
 )
 
 set(LIB_HEADERS
     ../src
-    ../.pio/libdeps/build/opt-parser/src
+    ../.pio/libdeps/build/rvt-OptionParser/src
 )
 
 include_directories(catch2 ${LIB_HEADERS})
