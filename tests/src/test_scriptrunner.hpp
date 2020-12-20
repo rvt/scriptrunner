@@ -9,181 +9,181 @@ using namespace rvt::scriptrunner;
 
 typedef PlainTextContext<512> PlainTextContext512;
 
-// TEST_CASE("Should Run script till end", "[scriptrunner]") {
-//     std::vector<Command<Context>*> commands;
+TEST_CASE("Should Run script till end", "[scriptrunner]") {
+    std::vector<Command<Context>*> commands;
 
-//     commands.push_back(new Command<Context>("cerr", [](const OptValue & value, Context & context) {
-//         std::cerr << value.key() << "=" << (char*)value << "\n";
-//         return true;
-//     }));
+    commands.push_back(new Command<Context>("cerr", [](const OptValue & value, Context & context) {
+        std::cerr << value.key() << "=" << (char*)value << "\n";
+        return true;
+    }));
 
-//     PlainTextContext<32> context {
-//         "cerr=foo;"
-//         "cerr=bar;"};
-//     auto scriptRunner = new ScriptRunner<Context>(commands);
-
-
-//     bool returned;
-//     REQUIRE_THAT((const char*)context.currentLine(), Equals("foo"));
-//     returned = scriptRunner->handle(context);
-//     REQUIRE(returned == true);
-
-//     REQUIRE_THAT((const char*)context.currentLine(), Equals("bar"));
-//     returned = scriptRunner->handle(context);
-//     REQUIRE(returned == true);
-
-//     REQUIRE_THAT((const char*)context.currentLine().key(), Equals("end"));
-//     returned = scriptRunner->handle(context);
-//     REQUIRE(returned == false);
-
-//     REQUIRE_THAT((const char*)context.currentLine().key(), Equals("end"));
-//     returned = scriptRunner->handle(context);
-//     REQUIRE(returned == false);
-// }
-
-// TEST_CASE("Should advance to next line with unknown commands", "[scriptrunner]") {
-//    class ExtendedContext : public PlainTextContext512 {
-//     public:
-//         char* value;
-//         uint8_t counter = 0;
-//         ExtendedContext(const char* script) : PlainTextContext512(script), value(nullptr), counter(0)  {
-
-//         }
-//     };
-
-//     std::vector<Command<ExtendedContext>*> commands;
-//     commands.push_back(new Command<ExtendedContext>("test", [](const OptValue & value, ExtendedContext & context) {
-//         context.value = (char*)value;
-//         context.counter++;
-//         std::cerr << (value.key()) << ":" << (char*)value << "\n";
-//         return true;
-//     }));
-
-//     ExtendedContext context{
-//         "test=bar;"
-//         "unknown=1;"
-//         "test=bas;"
-//     };
-
-//     auto scriptRunner = new ScriptRunner<ExtendedContext>(commands);
-
-//     for (int i = 0; i < 10; i++) {
-//         scriptRunner->handle(context);
-//     }
-
-//     REQUIRE_THAT((const char*)context.value, Equals("bas"));
-//     REQUIRE(context.counter == 2);
-// }
-
-// TEST_CASE("Should handle an extendedContext", "[scriptrunner]") {
-
-//     class ExtendedContext : public PlainTextContext512 {
-//         uint16_t m_counter;
-//     public:
-//         ExtendedContext(const char* script) : PlainTextContext512(script), m_counter(0)  {
-
-//         }
-//         uint16_t increaseAndGet() {
-//             return ++m_counter;
-//         }
-//         uint16_t get() {
-//             return m_counter;
-//         }
-//     };
-
-//     std::vector<Command<ExtendedContext>*> commands;
-//     commands.push_back(new Command<ExtendedContext>("count", [](const OptValue & value, ExtendedContext & context) {
-//         std::cerr << context.increaseAndGet() << "\n";
-//         return true;
-//     }));
-
-//     ExtendedContext context{
-//         "count=1;"
-//         "count=1;"};
-//     auto scriptRunner = new ScriptRunner<ExtendedContext>(commands);
-
-//     scriptRunner->handle(context);
-//     REQUIRE(context.get() == 1);
-//     scriptRunner->handle(context);
-//     REQUIRE(context.get() == 2);
-//     // Reached the end
-//     bool returned = scriptRunner->handle(context);
-//     REQUIRE(returned == false);
-//     REQUIRE(context.get() == 2);
-// }
+    PlainTextContext<32> context {
+        "cerr=foo;"
+        "cerr=bar;"};
+    auto scriptRunner = new ScriptRunner<Context>(commands);
 
 
-// TEST_CASE("Should perform jump", "[scriptrunner]") {
-//     class ExtendedContext : public PlainTextContext512 {
-//     public:
-//         uint16_t counter;
-//         ExtendedContext(const char* script) : PlainTextContext512(script), counter(0)  {
+    bool returned;
+    REQUIRE_THAT((const char*)context.currentLine(), Equals("foo"));
+    returned = scriptRunner->handle(context);
+    REQUIRE(returned == true);
 
-//         }
-//     };
+    REQUIRE_THAT((const char*)context.currentLine(), Equals("bar"));
+    returned = scriptRunner->handle(context);
+    REQUIRE(returned == true);
 
-//     std::vector<Command<ExtendedContext>*> commands;
-//     commands.push_back(new Command<ExtendedContext>("count", [](const OptValue & value, ExtendedContext & context) {
-//         std::cerr << context.counter++ << "\n";
-//         return true;
-//     }));
+    REQUIRE_THAT((const char*)context.currentLine().key(), Equals("end"));
+    returned = scriptRunner->handle(context);
+    REQUIRE(returned == false);
 
-//     ExtendedContext context{
-//         "count=1;"
-//         "jump=bar;"
-//         "count=1;"
-//         "count=1;"
-//         "count=1;"
-//         "label=bar;"
-//         "count=1;"};
-//     auto scriptRunner = new ScriptRunner<ExtendedContext>(commands);
+    REQUIRE_THAT((const char*)context.currentLine().key(), Equals("end"));
+    returned = scriptRunner->handle(context);
+    REQUIRE(returned == false);
+}
 
-//     for (int i = 0; i < 100; i++) {
-//         scriptRunner->handle(context);
-//     }
+TEST_CASE("Should advance to next line with unknown commands", "[scriptrunner]") {
+   class ExtendedContext : public PlainTextContext512 {
+    public:
+        char* value;
+        uint8_t counter = 0;
+        ExtendedContext(const char* script) : PlainTextContext512(script), value(nullptr), counter(0)  {
 
-//     REQUIRE(context.counter == 2);
-// }
+        }
+    };
 
-// TEST_CASE("Should perform jump, even as first line", "[scriptrunner]") {
-//     class ExtendedContext : public PlainTextContext512 {
-//     public:
-//         char* value;
-//         uint8_t counter = 0;
-//         ExtendedContext(const char* script) : PlainTextContext512(script), value(nullptr), counter(0)  {
+    std::vector<Command<ExtendedContext>*> commands;
+    commands.push_back(new Command<ExtendedContext>("test", [](const OptValue & value, ExtendedContext & context) {
+        context.value = (char*)value;
+        context.counter++;
+        std::cerr << (value.key()) << ":" << (char*)value << "\n";
+        return true;
+    }));
 
-//         }
-//     };
+    ExtendedContext context{
+        "test=bar;"
+        "unknown=1;"
+        "test=bas;"
+    };
 
-//     std::vector<Command<ExtendedContext>*> commands;
-//     commands.push_back(new Command<ExtendedContext>("test", [](const OptValue & value, ExtendedContext & context) {
-//         context.value = (char*)value;
-//         context.counter++;
-//         std::cerr << (value.key()) << ":" << (char*)value << "\n";
-//         return true;
-//     }));
+    auto scriptRunner = new ScriptRunner<ExtendedContext>(commands);
 
-//     ExtendedContext context{
-//         "jump=bar;"
-//         "test=1;"
-//         "test=2;"
-//         "test=3;"
-//         "label=bar;"
-//         "test=This one only;"
-//         "jump=bas;"
-//         "test=This not;"
-//         "label=bas;"
-//     };
+    for (int i = 0; i < 10; i++) {
+        scriptRunner->handle(context);
+    }
 
-//     auto scriptRunner = new ScriptRunner<ExtendedContext>(commands);
+    REQUIRE_THAT((const char*)context.value, Equals("bas"));
+    REQUIRE(context.counter == 2);
+}
 
-//     for (int i = 0; i < 50; i++) {
-//         scriptRunner->handle(context);
-//     }
+TEST_CASE("Should handle an extendedContext", "[scriptrunner]") {
 
-//     REQUIRE_THAT((const char*)context.value, Equals("This one only"));
-//     REQUIRE(context.counter == 1);
-// }
+    class ExtendedContext : public PlainTextContext512 {
+        uint16_t m_counter;
+    public:
+        ExtendedContext(const char* script) : PlainTextContext512(script), m_counter(0)  {
+
+        }
+        uint16_t increaseAndGet() {
+            return ++m_counter;
+        }
+        uint16_t get() {
+            return m_counter;
+        }
+    };
+
+    std::vector<Command<ExtendedContext>*> commands;
+    commands.push_back(new Command<ExtendedContext>("count", [](const OptValue & value, ExtendedContext & context) {
+        std::cerr << context.increaseAndGet() << "\n";
+        return true;
+    }));
+
+    ExtendedContext context{
+        "count=1;"
+        "count=1;"};
+    auto scriptRunner = new ScriptRunner<ExtendedContext>(commands);
+
+    scriptRunner->handle(context);
+    REQUIRE(context.get() == 1);
+    scriptRunner->handle(context);
+    REQUIRE(context.get() == 2);
+    // Reached the end
+    bool returned = scriptRunner->handle(context);
+    REQUIRE(returned == false);
+    REQUIRE(context.get() == 2);
+}
+
+
+TEST_CASE("Should perform jump", "[scriptrunner]") {
+    class ExtendedContext : public PlainTextContext512 {
+    public:
+        uint16_t counter;
+        ExtendedContext(const char* script) : PlainTextContext512(script), counter(0)  {
+
+        }
+    };
+
+    std::vector<Command<ExtendedContext>*> commands;
+    commands.push_back(new Command<ExtendedContext>("count", [](const OptValue & value, ExtendedContext & context) {
+        std::cerr << context.counter++ << "\n";
+        return true;
+    }));
+
+    ExtendedContext context{
+        "count=1;"
+        "jump=bar;"
+        "count=1;"
+        "count=1;"
+        "count=1;"
+        "label=bar;"
+        "count=1;"};
+    auto scriptRunner = new ScriptRunner<ExtendedContext>(commands);
+
+    for (int i = 0; i < 100; i++) {
+        scriptRunner->handle(context);
+    }
+
+    REQUIRE(context.counter == 2);
+}
+
+TEST_CASE("Should perform jump, even as first line", "[scriptrunner]") {
+    class ExtendedContext : public PlainTextContext512 {
+    public:
+        char* value;
+        uint8_t counter = 0;
+        ExtendedContext(const char* script) : PlainTextContext512(script), value(nullptr), counter(0)  {
+
+        }
+    };
+
+    std::vector<Command<ExtendedContext>*> commands;
+    commands.push_back(new Command<ExtendedContext>("test", [](const OptValue & value, ExtendedContext & context) {
+        context.value = (char*)value;
+        context.counter++;
+        std::cerr << (value.key()) << ":" << (char*)value << "\n";
+        return true;
+    }));
+
+    ExtendedContext context{
+        "jump=bar;"
+        "test=1;"
+        "test=2;"
+        "test=3;"
+        "label=bar;"
+        "test=This one only;"
+        "jump=bas;"
+        "test=This not;"
+        "label=bas;"
+    };
+
+    auto scriptRunner = new ScriptRunner<ExtendedContext>(commands);
+
+    for (int i = 0; i < 50; i++) {
+        scriptRunner->handle(context);
+    }
+
+    REQUIRE_THAT((const char*)context.value, Equals("This one only"));
+    REQUIRE(context.counter == 1);
+}
 
 TEST_CASE("Should handle waits", "[scriptrunner]") {
     class ExtendedContext : public PlainTextContext512 {
