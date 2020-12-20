@@ -41,6 +41,40 @@ TEST_CASE("Should Run script till end", "[scriptrunner]") {
     REQUIRE(returned == false);
 }
 
+TEST_CASE("Should advance to next line with unknown commands", "[scriptrunner]") {
+   class ExtendedContext : public PlainTextContext512 {
+    public:
+        char* value;
+        uint8_t counter = 0;
+        ExtendedContext(const char* script) : PlainTextContext512(script), value(nullptr), counter(0)  {
+
+        }
+    };
+
+    std::vector<Command<ExtendedContext>*> commands;
+    commands.push_back(new Command<ExtendedContext>("test", [](const OptValue & value, ExtendedContext & context) {
+        context.value = (char*)value;
+        context.counter++;
+        std::cerr << (value.key()) << ":" << (char*)value << "\n";
+        return true;
+    }));
+
+    ExtendedContext context{
+        "test=bar;"
+        "unknown=1;"
+        "test=bas;"
+    };
+
+    auto scriptRunner = new ScriptRunner<ExtendedContext>(commands);
+
+    for (int i = 0; i < 10; i++) {
+        scriptRunner->handle(context);
+    }
+
+    REQUIRE_THAT((const char*)context.value, Equals("bas"));
+    REQUIRE(context.counter == 2);
+}
+
 TEST_CASE("Should handle an extendedContext", "[scriptrunner]") {
 
     class ExtendedContext : public PlainTextContext512 {
