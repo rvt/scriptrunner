@@ -1,12 +1,12 @@
 {
-  "name":"rvt",
+  "name":"rvt-ScriptRunner",
   "keywords":"script, iot",
-  "description":"Extreemly small (no really!!) scripting lib for Arduino",
+  "description":"Extreemly small (no really!!) scripting library. It allowes to parse a simple text file and 'run' the given commands by calling for each command an accompanied Lambda.",
   "repository":{
      "type":"git",
      "url":"https://github.com/rvt/scriptrunner"
   },
-  "version":"0.0.1",
+  "version":"1.0.0",
   "authors":[
      {
         "name":"R. van Twisk",

@@ -14,3 +14,43 @@ I can now make commands to purge water from the machine, or with the same script
 ## Example
 
 Comming soon
+
+```c++
+ class ExtendedContext : public PlainTextContext512 {
+    public:
+        char* value;
+        uint8_t counter = 0;
+        ExtendedContext(const char* script) : PlainTextContext512(script), value(nullptr), counter(0)  {
+
+        }
+    };
+
+    std::vector<Command<ExtendedContext>*> commands;
+    commands.push_back(new Command<ExtendedContext>("test", [](const OptValue & value, ExtendedContext & context) {
+        context.value = (char*)value;
+        context.counter++;
+        std::cerr << (value.key()) << ":" << (char*)value << "\n";
+        return true;
+    }));
+
+    ExtendedContext context{
+        "jump=bar;"
+        "test=1;"
+        "test=2;"
+        "test=3;"
+        "label=bar;"
+        "test=This one only;"
+        "jump=bas;"
+        "test=This not;"
+        "label=bas;"
+    };
+
+    auto scriptRunner = new ScriptRunner<ExtendedContext>(commands);
+
+    for (int i = 0; i < 50; i++) {
+        scriptRunner->handle(context);
+    }
+
+    REQUIRE_THAT((const char*)context.value, Equals("This one only"));
+    REQUIRE(context.counter == 1);
+```
