@@ -4,6 +4,7 @@
 #include <functional>
 #include <vector>
 #include <memory>
+#include <limits>
 
 #include <optparser.hpp>
 
@@ -30,8 +31,9 @@ private:
     std::vector<OptValuePtr>::iterator m_currentLine;
     std::vector<OptValuePtr> m_script;
     unsigned long m_requestedStartMillis;
+    bool m_advanced;
 public:
-    Context(std::vector<OptValuePtr> p_script) : m_script(std::move(p_script)), m_requestedStartMillis(0) {
+    Context(std::vector<OptValuePtr> p_script) : m_script(std::move(p_script)), m_requestedStartMillis(0),m_advanced(false) {
         m_script.push_back(make_unique<OptValue>(m_script.size(), "end", ""));
         m_currentLine = m_script.begin();
     }
@@ -61,7 +63,7 @@ public:
                 return true;
             }
         } else {
-            m_requestedStartMillis = currentMillis == 0 ? 1 : currentMillis;
+            m_requestedStartMillis = currentMillis == 0 ? ULONG_MAX : currentMillis;
         }
 
         return false;
@@ -69,7 +71,7 @@ public:
 
     bool jump(const char* labelName) {
         std::vector<OptValuePtr>::iterator line = m_script.begin();
-
+        m_advanced=false;
         while (
             line != m_script.end() &&
             (strcmp((*line).get()->key(), "label") != 0 ||
@@ -79,6 +81,7 @@ public:
 
         if (line != m_script.end()) {
             m_currentLine = line;
+            m_advanced=true;
             return true;
         }
 
@@ -91,23 +94,31 @@ public:
      */
     bool advance() {
         const OptValue& current = currentLine();
-
+        m_advanced=false;
         if (current.isKey("end")) {
             return false;
         } else if (current.isKey("jump")) {
             jump(current);
         } else if (current.isKey("label")) {
             m_currentLine++;
+            m_advanced=true;
         } else if (current.isKey("wait")) {
             if (wait(millis(), (int32_t)current)) {
                 m_currentLine++;
+                m_advanced=true;
             }
         } else {
             m_currentLine++;
+            m_advanced=true;
         }
 
         return true;
     }
+
+    bool isAdvanced() const {
+        return m_advanced;
+    }
+
 };
 
 template<uint16_t ScriptSize>
