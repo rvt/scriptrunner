@@ -63,7 +63,7 @@ public:
                 return true;
             }
         } else {
-            m_requestedStartMillis = currentMillis == 0 ? ULONG_MAX : currentMillis;
+            m_requestedStartMillis = currentMillis == 0 ? 0xFFFFFFFFUL : currentMillis;
         }
 
         return false;
