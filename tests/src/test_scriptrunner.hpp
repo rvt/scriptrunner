@@ -32,11 +32,9 @@ TEST_CASE("Should Run script till end", "[scriptrunner]") {
     returned = scriptRunner->handle(context);
     REQUIRE(returned == true);
 
-    REQUIRE_THAT((const char*)context.currentLine().key(), Equals("end"));
     returned = scriptRunner->handle(context);
     REQUIRE(returned == false);
 
-    REQUIRE_THAT((const char*)context.currentLine().key(), Equals("end"));
     returned = scriptRunner->handle(context);
     REQUIRE(returned == false);
 }
@@ -47,7 +45,6 @@ TEST_CASE("Should advance to next line with unknown commands", "[scriptrunner]")
         char* value;
         uint8_t counter = 0;
         ExtendedContext(const char* script) : PlainTextContext512(script), value(nullptr), counter(0)  {
-
         }
     };
 

@@ -1,6 +1,6 @@
 #pragma once
-#include <string.h>
-#include <stdint.h>
+#include <cstring>
+#include <cstdint>
 #include <functional>
 #include <vector>
 #include <memory>
@@ -28,35 +28,43 @@ class Context {
 public:
     typedef std::unique_ptr<OptValue> OptValuePtr;
 private:
-    std::vector<OptValuePtr>::iterator m_currentLine;
     std::vector<OptValuePtr> m_script;
-    unsigned long m_requestedStartMillis;
+    std::vector<OptValuePtr>::iterator m_currentLine;
+    uint32_t m_requestedStartMillis;
     bool m_advanced;
 public:
-    Context(std::vector<OptValuePtr> p_script) : m_script(std::move(p_script)), m_requestedStartMillis(0),m_advanced(false) {
-        m_script.push_back(make_unique<OptValue>(m_script.size(), "end", ""));
-        m_currentLine = m_script.begin();
+    Context(std::vector<OptValuePtr> p_script) : 
+        m_script(std::move(p_script)), 
+        m_currentLine(m_script.begin()), 
+        m_requestedStartMillis(0), 
+        m_advanced(false) {
     }
 
-    Context() : m_requestedStartMillis(0) {
+    Context() : 
+        m_requestedStartMillis(0), 
+        m_advanced(false) {
     }
 
     void setScript(std::vector<OptValuePtr> p_script) {
         m_script = std::move(p_script);
-        m_script.push_back(make_unique<OptValue>(m_script.size(), "end", ""));
         m_currentLine = m_script.begin();
         m_requestedStartMillis = 0;
+        m_advanced = false;
     }
 
     const OptValue& currentLine() const {
         return *(*m_currentLine).get();
     }
 
+    bool isEnd() const {
+        return m_currentLine == m_script.end();
+    }
+
     /**
      * Wait a number of milli seconds
      * return true if the waiting is over, returns false if we should not advance to the next line
      */
-    bool wait(unsigned long currentMillis, unsigned long millisToWait) {
+    bool wait(uint32_t currentMillis, uint32_t millisToWait) {
         if (m_requestedStartMillis) {
             if (currentMillis - m_requestedStartMillis > millisToWait) {
                 m_requestedStartMillis = 0;
@@ -93,11 +101,10 @@ public:
      * as long as the script is running, we return true
      */
     bool advance() {
+        if (isEnd()) return false;
         const OptValue& current = currentLine();
         m_advanced=false;
-        if (current.isKey("end")) {
-            return false;
-        } else if (current.isKey("jump")) {
+        if (current.isKey("jump")) {
             jump(current);
         } else if (current.isKey("label")) {
             m_currentLine++;
@@ -188,14 +195,12 @@ public:
         m_commands(p_commands)  {
     }
 
-    virtual ~ScriptRunner() {
-    }
-
     /**
      * Keep running the script
      * Run's true as long as the script is still running
      */
     bool handle(ContextType& context) {
+        if (context.isEnd()) return false;
         const OptValue& currentLineValue = context.currentLine();
 
         bool advance = false;
