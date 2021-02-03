@@ -13,8 +13,6 @@ I can now make commands to purge water from the machine, or with the same script
 
 ## Example
 
-Comming soon
-
 ```c++
  class ExtendedContext : public PlainTextContext512 {
     public:

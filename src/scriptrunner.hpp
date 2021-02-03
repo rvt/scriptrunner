@@ -4,8 +4,7 @@
 #include <functional>
 #include <vector>
 #include <memory>
-#include <limits>
-
+#include <map>
 #include <optparser.hpp>
 
 #ifndef UNIT_TEST
@@ -24,24 +23,151 @@ std::unique_ptr<T> make_unique(Args&& ... args) {
 }
 
 
-class Context {
+/**
+ * Simpel state that gets run each time the StateMachine reaches this state
+ */
+template<typename ContextType>
+class Command {
 public:
-    typedef std::unique_ptr<OptValue> OptValuePtr;
+    typedef std::function<bool (const char*, ContextType& context)> TRunFunction;
+
 private:
+    TRunFunction m_run;
+    const char* m_command;
+
+public:
+    Command(const char* p_command, const TRunFunction& p_run) :
+        m_run{p_run},
+        m_command{p_command} {
+    }
+
+    bool canExecute(const char* requestedCommand) const {
+        return strcmp(requestedCommand, m_command) == 0;
+    }
+
+    inline bool execute(const char* command, ContextType& context) {
+        return m_run(command, context);
+    }
+
+};
+
+/**
+ * StateMachine itself that will run through all states
+ */
+
+template<typename ContextType>
+class ScriptRunner {
+public:
+    typedef Command<ContextType>* CommandContextPtr;
+protected:
+    std::vector<CommandContextPtr> m_commands;
+
+    virtual CommandContextPtr getCommandExecutor(const char* line) {
+        for (auto cmd : m_commands) {
+            if (cmd->canExecute(line)) {
+                return cmd;
+            }
+        }
+
+        return nullptr;
+    }
+
+public:
+    ScriptRunner(std::vector<CommandContextPtr> const& p_commands) :
+        m_commands{p_commands}  {
+    }
+
+    /**
+     * Keep running the script
+     * Run's true as long as the script is still running
+     */
+    bool handle(ContextType& context) {
+        if (context.isEnd()) {
+            return false;
+        }
+
+        const OptValue& currentLineValue = context.currentLine();
+
+        bool advance = false;
+        bool hasRan = false;
+
+        // For the current line, find the matching command to run
+        auto cmd = getCommandExecutor(currentLineValue.key());
+
+        if (cmd != nullptr) {
+            advance = cmd->execute((const char*)currentLineValue, context);
+
+            if (!advance) {
+                context.advanced(false);
+            }
+
+            hasRan = true;
+        }
+
+        if (advance || !hasRan) {
+            return context.advance();
+        } else {
+            return true;
+        }
+    }
+};
+
+
+template<typename ContextType>
+class CachedScriptRunner : public ScriptRunner<ContextType> {
+    struct cmp_str {
+        bool operator()(char const* a, char const* b) const {
+            return std::strcmp(a, b) < 0;
+        }
+    };
+
+    template<typename key, typename value>
+    using mymap = std::map<key, value, cmp_str>;
+
+    mymap<const char*, Command<ContextType>*> m_cmdMap;
+public:
+    CachedScriptRunner(std::vector<Command<ContextType>*> const& p_commands) : ScriptRunner<ContextType> {
+        p_commands
+    } {
+    }
+
+    virtual Command<ContextType>* getCommandExecutor(const char* line) {
+        auto search = m_cmdMap.find(line);
+
+        if (search != m_cmdMap.end()) {
+            return search->second;
+        } else {
+            Command<ContextType>* unCached = ScriptRunner<ContextType>::getCommandExecutor(line);
+            m_cmdMap.emplace(line, unCached);
+            return unCached;
+        }
+
+    }
+
+    uint8_t cacheSize() const {
+        return m_cmdMap.size();
+    }
+};
+
+
+typedef std::unique_ptr<OptValue> OptValuePtr;
+class Context {
+private:
+
     std::vector<OptValuePtr> m_script;
     std::vector<OptValuePtr>::iterator m_currentLine;
     uint32_t m_requestedStartMillis;
     bool m_advanced;
 public:
-    Context(std::vector<OptValuePtr> p_script) : 
-        m_script(std::move(p_script)), 
-        m_currentLine(m_script.begin()), 
-        m_requestedStartMillis(0), 
+    Context(std::vector<OptValuePtr> p_script) :
+        m_script(std::move(p_script)),
+        m_currentLine(m_script.begin()),
+        m_requestedStartMillis(0),
         m_advanced(false) {
     }
 
-    Context() : 
-        m_requestedStartMillis(0), 
+    Context() :
+        m_requestedStartMillis(0),
         m_advanced(false) {
     }
 
@@ -53,7 +179,7 @@ public:
     }
 
     const OptValue& currentLine() const {
-        return *(*m_currentLine).get();
+        return (*(*m_currentLine).get());
     }
 
     bool isEnd() const {
@@ -79,7 +205,8 @@ public:
 
     bool jump(const char* labelName) {
         std::vector<OptValuePtr>::iterator line = m_script.begin();
-        m_advanced=false;
+        m_advanced = false;
+
         while (
             line != m_script.end() &&
             (strcmp((*line).get()->key(), "label") != 0 ||
@@ -89,7 +216,7 @@ public:
 
         if (line != m_script.end()) {
             m_currentLine = line;
-            m_advanced=true;
+            m_advanced = true;
             return true;
         }
 
@@ -101,32 +228,36 @@ public:
      * as long as the script is running, we return true
      */
     bool advance() {
-        if (isEnd()) return false;
+        if (isEnd()) {
+            return false;
+        }
+
         const OptValue& current = currentLine();
-        m_advanced=false;
+        m_advanced = false;
+
         if (current.isKey("jump")) {
             jump(current);
         } else if (current.isKey("label")) {
             m_currentLine++;
-            m_advanced=true;
+            m_advanced = true;
         } else if (current.isKey("wait")) {
             if (wait(millis(), (int32_t)current)) {
                 m_currentLine++;
-                m_advanced=true;
+                m_advanced = true;
             }
         } else {
             m_currentLine++;
-            m_advanced=true;
+            m_advanced = true;
         }
 
         return true;
     }
 
-    bool isAdvanced() const {
+    bool advanced() const {
         return m_advanced;
     }
-    void isAdvanced(bool advanced)  {
-        m_advanced=advanced;
+    void advanced(bool advanced)  {
+        m_advanced = advanced;
     }
 
 };
@@ -139,7 +270,7 @@ public:
     // I would like to copy the character array AND of the option parser point to the right data
     PlainTextContext(const char* script) : Context() {
         strncpy(m_scriptText, script, ScriptSize);
-        std::vector<Context::OptValuePtr> scriptOpts;
+        std::vector<OptValuePtr> scriptOpts;
         OptParser::get(m_scriptText, ';', [&scriptOpts](OptValue f) {
             scriptOpts.push_back(make_unique<OptValue>(f));
         });
@@ -147,80 +278,7 @@ public:
     }
 };
 
-/**
- * Simpel state that gets run each time the StateMachine reaches this state
- */
-template<typename ContextType>
-class Command {
-    //    friend class ScriptRunner;
-public:
-    typedef std::function<bool (const OptValue&, ContextType& context)> TRunFunction;
 
-    TRunFunction m_run;
-    const char* m_command;
 
-private:
-
-public:
-
-    Command(const char* p_command, const TRunFunction& p_run) :
-        m_run(p_run),
-        m_command(p_command) {
-    }
-
-    ~Command() {
-    }
-
-    bool canExecute(const OptValue& execLine) const {
-        return strcmp(execLine.key(), m_command) == 0;
-    }
-
-    bool execute(const OptValue& execLine, ContextType& context) {
-        return m_run(execLine, context);
-    }
-
-};
-
-/**
- * StateMachine itself that will run through all states
- */
-template<typename ContextType>
-class ScriptRunner {
-private:
-    typedef Command<ContextType>* CommandContextPtr;
-    std::vector<CommandContextPtr> m_commands;
-
-public:
-    ScriptRunner(std::vector<CommandContextPtr> p_commands) :
-        m_commands(p_commands)  {
-    }
-
-    /**
-     * Keep running the script
-     * Run's true as long as the script is still running
-     */
-    bool handle(ContextType& context) {
-        if (context.isEnd()) return false;
-        const OptValue& currentLineValue = context.currentLine();
-
-        bool advance = false;
-        bool hasRan = false;
-
-        for (auto value : m_commands) {
-            if (value->canExecute(currentLineValue)) {
-                advance = value->execute(currentLineValue, context);
-                if (!advance) context.isAdvanced(false);
-                hasRan = true;
-            }
-        }
-
-        if (advance || !hasRan) {
-            return context.advance();
-        } else {
-            return true;
-        }
-    }
-
-};
 }
 }

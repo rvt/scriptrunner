@@ -12,8 +12,8 @@ typedef PlainTextContext<512> PlainTextContext512;
 TEST_CASE("Should Run script till end", "[scriptrunner]") {
     std::vector<Command<Context>*> commands;
 
-    commands.push_back(new Command<Context>("cerr", [](const OptValue & value, Context & context) {
-        std::cerr << value.key() << "=" << (char*)value << "\n";
+    commands.push_back(new Command<Context>("cerr", [](const char* value, Context & context) {
+        std::cerr << "cerr" << "=" << value << "\n";
         return true;
     }));
 
@@ -40,19 +40,19 @@ TEST_CASE("Should Run script till end", "[scriptrunner]") {
 }
 
 TEST_CASE("Should advance to next line with unknown commands", "[scriptrunner]") {
-   class ExtendedContext : public PlainTextContext512 {
+    class ExtendedContext : public PlainTextContext512 {
     public:
-        char* value;
+        const char* value;
         uint8_t counter = 0;
         ExtendedContext(const char* script) : PlainTextContext512(script), value(nullptr), counter(0)  {
         }
     };
 
     std::vector<Command<ExtendedContext>*> commands;
-    commands.push_back(new Command<ExtendedContext>("test", [](const OptValue & value, ExtendedContext & context) {
-        context.value = (char*)value;
+    commands.push_back(new Command<ExtendedContext>("test", [](const char* value, ExtendedContext & context) {
+        context.value = value;
         context.counter++;
-        std::cerr << (value.key()) << ":" << (char*)value << "\n";
+        std::cerr << "test" << ":" << value << "\n";
         return true;
     }));
 
@@ -89,7 +89,7 @@ TEST_CASE("Should handle an extendedContext", "[scriptrunner]") {
     };
 
     std::vector<Command<ExtendedContext>*> commands;
-    commands.push_back(new Command<ExtendedContext>("count", [](const OptValue & value, ExtendedContext & context) {
+    commands.push_back(new Command<ExtendedContext>("count", [](const char* value, ExtendedContext & context) {
         std::cerr << context.increaseAndGet() << "\n";
         return true;
     }));
@@ -120,7 +120,7 @@ TEST_CASE("Should perform jump", "[scriptrunner]") {
     };
 
     std::vector<Command<ExtendedContext>*> commands;
-    commands.push_back(new Command<ExtendedContext>("count", [](const OptValue & value, ExtendedContext & context) {
+    commands.push_back(new Command<ExtendedContext>("count", [](const char* value, ExtendedContext & context) {
         std::cerr << context.counter++ << "\n";
         return true;
     }));
@@ -145,7 +145,7 @@ TEST_CASE("Should perform jump", "[scriptrunner]") {
 TEST_CASE("Should perform jump, even as first line", "[scriptrunner]") {
     class ExtendedContext : public PlainTextContext512 {
     public:
-        char* value;
+        const char* value;
         uint8_t counter = 0;
         ExtendedContext(const char* script) : PlainTextContext512(script), value(nullptr), counter(0)  {
 
@@ -153,10 +153,10 @@ TEST_CASE("Should perform jump, even as first line", "[scriptrunner]") {
     };
 
     std::vector<Command<ExtendedContext>*> commands;
-    commands.push_back(new Command<ExtendedContext>("test", [](const OptValue & value, ExtendedContext & context) {
-        context.value = (char*)value;
+    commands.push_back(new Command<ExtendedContext>("test", [](const char* value, ExtendedContext & context) {
+        context.value = value;
         context.counter++;
-        std::cerr << (value.key()) << ":" << (char*)value << "\n";
+        std::cerr << "test" << ":" << value << "\n";
         return true;
     }));
 
@@ -185,16 +185,16 @@ TEST_CASE("Should perform jump, even as first line", "[scriptrunner]") {
 TEST_CASE("Should handle waits", "[scriptrunner]") {
     class ExtendedContext : public PlainTextContext512 {
     public:
-        char* value;
+        const char* value;
         ExtendedContext(const char* script) : PlainTextContext512(script), value(nullptr)  {
 
         }
     };
 
     std::vector<Command<ExtendedContext>*> commands;
-    commands.push_back(new Command<ExtendedContext>("test", [](const OptValue & value, ExtendedContext & context) {
-        context.value = (char*)value;
-        std::cerr << (value.key()) << ":" << (char*)value << "\n";
+    commands.push_back(new Command<ExtendedContext>("test", [](const char* value, ExtendedContext & context) {
+        context.value = value;
+        std::cerr << "test" << ":" << value << "\n";
         return true;
     }));
 
@@ -207,15 +207,50 @@ TEST_CASE("Should handle waits", "[scriptrunner]") {
     auto scriptRunner = new ScriptRunner<ExtendedContext>(commands);
 
     scriptRunner->handle(context);
-    REQUIRE(context.isAdvanced() == true);
+    REQUIRE(context.advanced() == true);
     scriptRunner->handle(context);
-    REQUIRE(context.isAdvanced() == false);
+    REQUIRE(context.advanced() == false);
     scriptRunner->handle(context);
-    REQUIRE(context.isAdvanced() == false);
+    REQUIRE(context.advanced() == false);
     REQUIRE_THAT((const char*)context.value, Equals("before"));
     millisStubbed = 51;
     scriptRunner->handle(context);
     scriptRunner->handle(context);
-    REQUIRE(context.isAdvanced() == true);
+    REQUIRE(context.advanced() == true);
     REQUIRE_THAT((const char*)context.value, Equals("after"));
+}
+
+TEST_CASE("Should Use cached runner", "[scriptrunner]") {
+    class ExtendedContext : public PlainTextContext512 {
+    public:
+        uint16_t counter;
+        ExtendedContext(const char* script) : PlainTextContext512(script), counter(0)  {
+        }
+    };
+
+    std::vector<Command<ExtendedContext>*> commands;
+    commands.push_back(new Command<ExtendedContext>("count", [](const char* value, ExtendedContext & context) {
+        std::cerr << context.counter++ << "\n";
+        return true;
+    }));
+    commands.push_back(new Command<ExtendedContext>("uncount", [](const char* value, ExtendedContext & context) {
+        std::cerr << context.counter++ << "\n";
+        return true;
+    }));
+
+    ExtendedContext context{
+        "count=1;"
+        "count=2;"
+        "count=3;"
+        "uncount=4;"
+        "count=5;"
+        "count=6;"};
+    auto scriptRunner = new CachedScriptRunner<ExtendedContext>(commands);
+
+    for (int i = 0; i < 10; i++) {
+        scriptRunner->handle(context);
+    }
+
+    REQUIRE(context.counter == 6);
+    REQUIRE(scriptRunner->cacheSize() == 2);
 }
