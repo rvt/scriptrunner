@@ -36,7 +36,7 @@ private:
     const char* m_command;
 
 public:
-    Command(const char* p_command, const TRunFunction& p_run) :
+    Command(const char* p_command, const TRunFunction p_run) :
         m_run{p_run},
         m_command{p_command} {
     }
@@ -105,7 +105,13 @@ public:
         }
 
         if (advance || !hasRan) {
-            return context.advance();
+            bool advanced = context.advance();
+            // Optimalisation to execute the next command after the wait is over to
+            // keep timing as tight as possible
+            if (advanced && strcmp(currentLineValue.key(), "wait") == 0) {
+                return context.advance();
+            }
+            return advanced;
         } else {
             return true;
         }

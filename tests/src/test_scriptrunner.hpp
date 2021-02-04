@@ -201,7 +201,8 @@ TEST_CASE("Should handle waits", "[scriptrunner]") {
     ExtendedContext context{
         "test=before;"
         "wait=50;"
-        "test=after;"
+        "test=after1;"
+        "test=after2;"
     };
 
     auto scriptRunner = new ScriptRunner<ExtendedContext>(commands);
@@ -217,7 +218,7 @@ TEST_CASE("Should handle waits", "[scriptrunner]") {
     scriptRunner->handle(context);
     scriptRunner->handle(context);
     REQUIRE(context.advanced() == true);
-    REQUIRE_THAT((const char*)context.value, Equals("after"));
+    REQUIRE_THAT((const char*)context.value, Equals("after2"));
 }
 
 TEST_CASE("Should Use cached runner", "[scriptrunner]") {
