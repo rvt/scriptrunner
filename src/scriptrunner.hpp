@@ -72,6 +72,27 @@ protected:
         return nullptr;
     }
 
+    bool execute(ContextType& context) {
+        const OptValue& currentLineValue = context.currentLine();
+
+        bool advanced = false;
+
+        // For the current line, find the matching command to run
+        auto cmd = getCommandExecutor(currentLineValue.key());
+
+        if (cmd != nullptr) {
+            cmd->execute((const char*)currentLineValue, context);
+            advanced = context.advance();
+            context.advanced(advanced);
+           // if (strcmp(currentLineValue.key(), "wait") == 0) {
+           //     advanced = execute(context);
+           //     context.advanced(advanced);
+           // }
+        }
+
+        return advanced;
+    }
+
 public:
     ScriptRunner(std::vector<CommandContextPtr> const& p_commands) :
         m_commands{p_commands}  {
@@ -86,35 +107,26 @@ public:
             return false;
         }
 
+        // Find an executor and run the command
         const OptValue& currentLineValue = context.currentLine();
-
-        bool advance = false;
-        bool hasRan = false;
-
-        // For the current line, find the matching command to run
         auto cmd = getCommandExecutor(currentLineValue.key());
 
+        bool shouldAdvance = true;
         if (cmd != nullptr) {
-            advance = cmd->execute((const char*)currentLineValue, context);
-
-            if (!advance) {
-                context.advanced(false);
-            }
-
-            hasRan = true;
+            shouldAdvance = cmd->execute((const char*)currentLineValue, context);
         }
 
-        if (advance || !hasRan) {
+        // move to next line
+        if (shouldAdvance) {
             bool advanced = context.advance();
+            context.advanced(advanced);
             // Optimalisation to execute the next command after the wait is over to
             // keep timing as tight as possible
             if (advanced && strcmp(currentLineValue.key(), "wait") == 0) {
-                return context.advance();
+                return handle(context);
             }
-            return advanced;
-        } else {
-            return true;
         }
+        return true;
     }
 };
 
@@ -239,24 +251,23 @@ public:
         }
 
         const OptValue& current = currentLine();
-        m_advanced = false;
+        m_advanced = true;
 
         if (current.isKey("jump")) {
             jump(current);
         } else if (current.isKey("label")) {
             m_currentLine++;
-            m_advanced = true;
         } else if (current.isKey("wait")) {
             if (wait(millis(), (int32_t)current)) {
                 m_currentLine++;
-                m_advanced = true;
+            } else {
+                m_advanced = false;
             }
         } else {
             m_currentLine++;
-            m_advanced = true;
         }
 
-        return true;
+        return m_advanced;
     }
 
     bool advanced() const {
