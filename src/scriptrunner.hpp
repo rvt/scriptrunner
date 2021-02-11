@@ -84,10 +84,10 @@ protected:
             cmd->execute((const char*)currentLineValue, context);
             advanced = context.advance();
             context.advanced(advanced);
-           // if (strcmp(currentLineValue.key(), "wait") == 0) {
-           //     advanced = execute(context);
-           //     context.advanced(advanced);
-           // }
+            // if (strcmp(currentLineValue.key(), "wait") == 0) {
+            //     advanced = execute(context);
+            //     context.advanced(advanced);
+            // }
         }
 
         return advanced;
@@ -112,6 +112,7 @@ public:
         auto cmd = getCommandExecutor(currentLineValue.key());
 
         bool shouldAdvance = true;
+
         if (cmd != nullptr) {
             shouldAdvance = cmd->execute((const char*)currentLineValue, context);
         }
@@ -120,12 +121,14 @@ public:
         if (shouldAdvance) {
             bool advanced = context.advance();
             context.advanced(advanced);
+
             // Optimalisation to execute the next command after the wait is over to
             // keep timing as tight as possible
             if (advanced && strcmp(currentLineValue.key(), "wait") == 0) {
                 return handle(context);
             }
         }
+
         return true;
     }
 };
@@ -289,7 +292,9 @@ public:
         strncpy(m_scriptText, script, ScriptSize);
         std::vector<OptValuePtr> scriptOpts;
         OptParser::get(m_scriptText, ';', [&scriptOpts](OptValue f) {
-            scriptOpts.push_back(make_unique<OptValue>(f));
+            if (strlen(f.key())!=0) {
+                scriptOpts.push_back(make_unique<OptValue>(f));
+            }
         });
         setScript(std::move(scriptOpts));
     }

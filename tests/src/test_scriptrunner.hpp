@@ -234,6 +234,7 @@ TEST_CASE("Should Use cached runner", "[scriptrunner]") {
     std::vector<Command<ExtendedContext>*> commands;
     commands.push_back(new Command<ExtendedContext>("count", [](const char* value, ExtendedContext & context) {
         std::cerr << context.counter++ << "\n";
+        std::cerr << value << "\n";
         return true;
     }));
     commands.push_back(new Command<ExtendedContext>("uncount", [](const char* value, ExtendedContext & context) {
@@ -245,6 +246,7 @@ TEST_CASE("Should Use cached runner", "[scriptrunner]") {
         "count=1;"
         "count=2;"
         "count=3;"
+        ""
         "uncount=4;"
         "count=5;"
         "count=6;"};
