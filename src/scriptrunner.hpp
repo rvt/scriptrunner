@@ -2,6 +2,7 @@
 #include <cstring>
 #include <cstdint>
 #include <functional>
+#include <algorithm>
 #include <vector>
 #include <memory>
 #include <map>
@@ -24,7 +25,7 @@ std::unique_ptr<T> make_unique(Args&& ... args) {
 
 
 /**
- * Simpel state that gets run each time the StateMachine reaches this state
+ * Command name and function of something that can be executed.
  */
 template<typename ContextType>
 class Command {
@@ -32,7 +33,7 @@ public:
     typedef std::function<bool (const char*, ContextType& context)> TRunFunction;
 
 private:
-    TRunFunction m_run;
+    const TRunFunction m_run;
     const char* m_command;
 
 public:
@@ -41,7 +42,7 @@ public:
         m_command{p_command} {
     }
 
-    bool canExecute(const char* requestedCommand) const {
+    inline bool canExecute(const char* requestedCommand) const {
         return strcmp(requestedCommand, m_command) == 0;
     }
 
@@ -52,9 +53,10 @@ public:
 };
 
 /**
- * StateMachine itself that will run through all states
+ * ScriptRunner is capable of running a script with a context
+ * The class itself is stateless and on one ScriptRunner you can run multiple scripts with
+ * each their own context but witj the same command list commands.
  */
-
 template<typename ContextType>
 class ScriptRunner {
 public:
@@ -63,34 +65,11 @@ protected:
     std::vector<CommandContextPtr> m_commands;
 
     virtual CommandContextPtr getCommandExecutor(const char* line) {
-        for (auto cmd : m_commands) {
-            if (cmd->canExecute(line)) {
-                return cmd;
-            }
-        }
+        auto found = std::find_if(m_commands.begin(), m_commands.end(), [&](CommandContextPtr f) {
+            return f->canExecute(line);
+        });
 
-        return nullptr;
-    }
-
-    bool execute(ContextType& context) {
-        const OptValue& currentLineValue = context.currentLine();
-
-        bool advanced = false;
-
-        // For the current line, find the matching command to run
-        auto cmd = getCommandExecutor(currentLineValue.key());
-
-        if (cmd != nullptr) {
-            cmd->execute((const char*)currentLineValue, context);
-            advanced = context.advance();
-            context.advanced(advanced);
-            // if (strcmp(currentLineValue.key(), "wait") == 0) {
-            //     advanced = execute(context);
-            //     context.advanced(advanced);
-            // }
-        }
-
-        return advanced;
+        return found != m_commands.end() ? *found : nullptr;
     }
 
 public:
@@ -98,42 +77,56 @@ public:
         m_commands{p_commands}  {
     }
 
-    /**
-     * Keep running the script
-     * Run's true as long as the script is still running
-     */
     bool handle(ContextType& context) {
-        if (context.isEnd()) {
-            return false;
-        }
+        return handle(context, false);
+    }
 
-        // Find an executor and run the command
-        const OptValue& currentLineValue = context.currentLine();
-        auto cmd = getCommandExecutor(currentLineValue.key());
+    /**
+     * Handle the current command and advance to the next command
+     * Returns true when we are still running the script, returns false if the script has ended.
+     */
+    bool handle(ContextType& context, bool fastForeward) {
+        auto startPosition = context.currentPosition();
 
-        bool shouldAdvance = true;
+        bool canRunNextLine;
 
-        if (cmd != nullptr) {
-            shouldAdvance = cmd->execute((const char*)currentLineValue, context);
-        }
-
-        // move to next line
-        if (shouldAdvance) {
-            bool advanced = context.advance();
-            context.advanced(advanced);
-
-            // Optimalisation to execute the next command after the wait is over to
-            // keep timing as tight as possible
-            if (advanced && strcmp(currentLineValue.key(), "wait") == 0) {
-                return handle(context);
+        do {
+            if (context.isEnd()) {
+                return false;
             }
-        }
+
+            // Find an executor and run the command
+            const OptValue& currentLineValue = context.currentLine();
+            auto cmd = getCommandExecutor(currentLineValue.key());
+
+            bool shouldAdvance = true;
+
+            if (cmd != nullptr) {
+                shouldAdvance = cmd->execute((const char*)currentLineValue, context);
+            }
+
+            canRunNextLine = shouldAdvance;
+
+            if (shouldAdvance) {
+                // When returned false, we cannot run the next line
+                canRunNextLine = context.advanceToNextLine();
+
+                // Optimalisation to execute the next command after the wait is over to
+                // keep timing as tight as possible
+                if (canRunNextLine && strcmp(currentLineValue.key(), "wait") == 0) {
+                    return handle(context, fastForeward);
+                }
+            }
+        } while (fastForeward && startPosition != context.currentPosition() && canRunNextLine);
+
 
         return true;
     }
 };
 
-
+/**
+ * Same as ScriptRunner but it will cache the commands in a hasmap for faster lookup.
+ */
 template<typename ContextType>
 class CachedScriptRunner : public ScriptRunner<ContextType> {
     struct cmp_str {
@@ -147,11 +140,15 @@ class CachedScriptRunner : public ScriptRunner<ContextType> {
 
     mymap<const char*, Command<ContextType>*> m_cmdMap;
 public:
-    CachedScriptRunner(std::vector<Command<ContextType>*> const& p_commands) : ScriptRunner<ContextType> {
+    CachedScriptRunner(std::vector<Command<ContextType>*> const& p_commands) :
+        ScriptRunner<ContextType> {
         p_commands
     } {
     }
 
+    /**
+     * Find a command from the cache or look them up
+     */
     virtual Command<ContextType>* getCommandExecutor(const char* line) {
         auto search = m_cmdMap.find(line);
 
@@ -162,7 +159,6 @@ public:
             m_cmdMap.emplace(line, unCached);
             return unCached;
         }
-
     }
 
     uint8_t cacheSize() const {
@@ -171,36 +167,38 @@ public:
 };
 
 
+/**
+ * Base context you can inherit to add your own functionality
+ */
 typedef std::unique_ptr<OptValue> OptValuePtr;
 class Context {
-private:
-
+protected:
     std::vector<OptValuePtr> m_script;
     std::vector<OptValuePtr>::iterator m_currentLine;
     uint32_t m_requestedStartMillis;
-    bool m_advanced;
 public:
     Context(std::vector<OptValuePtr> p_script) :
         m_script(std::move(p_script)),
         m_currentLine(m_script.begin()),
-        m_requestedStartMillis(0),
-        m_advanced(false) {
+        m_requestedStartMillis(0) {
     }
 
     Context() :
-        m_requestedStartMillis(0),
-        m_advanced(false) {
+        m_requestedStartMillis(0) {
     }
 
     void setScript(std::vector<OptValuePtr> p_script) {
         m_script = std::move(p_script);
         m_currentLine = m_script.begin();
         m_requestedStartMillis = 0;
-        m_advanced = false;
     }
 
     const OptValue& currentLine() const {
         return (*(*m_currentLine).get());
+    }
+
+    uint16_t currentPosition() const {
+        return m_currentLine - m_script.begin();
     }
 
     bool isEnd() const {
@@ -224,9 +222,11 @@ public:
         return false;
     }
 
-    bool jump(const char* labelName) {
+    /**
+     * Find a location to jump into, else just advance to the next line
+     */
+    void jump(const char* labelName) {
         std::vector<OptValuePtr>::iterator line = m_script.begin();
-        m_advanced = false;
 
         while (
             line != m_script.end() &&
@@ -237,49 +237,36 @@ public:
 
         if (line != m_script.end()) {
             m_currentLine = line;
-            m_advanced = true;
-            return true;
+        } else {
+            m_currentLine++;
         }
-
-        return false;
     }
 
     /**
-     * Advance to the next line
-     * as long as the script is running, we return true
+     * Process the next line
+     * Returns true when we have advanced to the next line
      */
-    bool advance() {
+    bool advanceToNextLine() {
         if (isEnd()) {
             return false;
         }
 
         const OptValue& current = currentLine();
-        m_advanced = true;
 
         if (current.isKey("jump")) {
             jump(current);
-        } else if (current.isKey("label")) {
-            m_currentLine++;
         } else if (current.isKey("wait")) {
             if (wait(millis(), (int32_t)current)) {
                 m_currentLine++;
             } else {
-                m_advanced = false;
+                return false;
             }
         } else {
             m_currentLine++;
         }
 
-        return m_advanced;
+        return true;
     }
-
-    bool advanced() const {
-        return m_advanced;
-    }
-    void advanced(bool advanced)  {
-        m_advanced = advanced;
-    }
-
 };
 
 template<uint16_t ScriptSize>
@@ -292,7 +279,7 @@ public:
         strncpy(m_scriptText, script, ScriptSize);
         std::vector<OptValuePtr> scriptOpts;
         OptParser::get(m_scriptText, ';', [&scriptOpts](OptValue f) {
-            if (strlen(f.key())!=0) {
+            if (strlen(f.key()) != 0) {
                 scriptOpts.push_back(make_unique<OptValue>(f));
             }
         });
