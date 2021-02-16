@@ -99,15 +99,13 @@ public:
             const OptValue& currentLineValue = context.currentLine();
             auto cmd = getCommandExecutor(currentLineValue.key());
 
-            bool shouldAdvance = true;
-
             if (cmd != nullptr) {
-                shouldAdvance = cmd->execute((const char*)currentLineValue, context);
+                canRunNextLine = cmd->execute((const char*)currentLineValue, context);
+            } else {
+                canRunNextLine = true;
             }
 
-            canRunNextLine = shouldAdvance;
-
-            if (shouldAdvance) {
+            if (canRunNextLine) {
                 // When returned false, we cannot run the next line
                 canRunNextLine = context.advanceToNextLine();
 
