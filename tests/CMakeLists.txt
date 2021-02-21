@@ -12,7 +12,7 @@ set(CATCH_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(Catch INTERFACE)
 target_include_directories(Catch INTERFACE ${CATCH_INCLUDE_DIR})
 
-ADD_DEFINITIONS(-DUNIT_TEST)
+add_definitions(-DUNIT_TEST -DCONFIG_MILLIS_TIME_EXPR=millis\(\))
 
 set(LIB_SOURCES
     ../src/scriptrunner.cpp
@@ -20,6 +20,7 @@ set(LIB_SOURCES
 )
 
 set(LIB_HEADERS
+    stub
     ../src
     ../.pio/libdeps/build/rvt-OptionParser/src
 )

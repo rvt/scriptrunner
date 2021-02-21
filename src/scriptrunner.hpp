@@ -8,11 +8,21 @@
 #include <map>
 #include <optparser.hpp>
 
-#ifndef UNIT_TEST
-#include <Arduino.h>
-#else
-extern "C" uint32_t millis();
+#if ! defined (UNIT_TEST)
+#   if defined (CONFIG_MILLIS_INCLUDE)
+#       include CONFIG_MILLIS_INCLUDE
+#   endif
+#   else
+extern "C" uint32_t millis();   
 #endif
+
+#   if defined (CONFIG_MILLIS_TIME_EXPR)
+#       define MILLIS_TIME_EXPR CONFIG_MILLIS_TIME_EXPR
+#   else
+#       error No millis defined for scriptrunner. Use MILLIS_INCLUDE and MILLIS_TIME_EXPR
+#   endif
+
+
 
 namespace rvt {
 
@@ -207,7 +217,8 @@ public:
      * Wait a number of milli seconds
      * return true if the waiting is over, returns false if we should not advance to the next line
      */
-    bool wait(uint32_t currentMillis, uint32_t millisToWait) {
+    bool wait(uint32_t millisToWait) {
+        const uint32_t currentMillis = MILLIS_TIME_EXPR;
         if (m_requestedStartMillis) {
             if (currentMillis - m_requestedStartMillis > millisToWait) {
                 m_requestedStartMillis = 0;
@@ -254,7 +265,7 @@ public:
         if (current.isKey("jump")) {
             jump(current);
         } else if (current.isKey("wait")) {
-            if (wait(millis(), (int32_t)current)) {
+            if (wait((int32_t)current)) {
                 m_currentLine++;
             } else {
                 return false;
